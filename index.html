@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CultureGo: Deep Travel</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+    <style>
+        /* --- 🎨 UI 样式 (保持 V2 美观版) --- */
+        :root {
+            --primary-gradient: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
+            --bg-glass: rgba(255, 255, 255, 0.96);
+            --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        body { font-family: var(--font-family); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; height: 100dvh; background-image: url('https://images.pexels.com/photos/1619317/pexels-photo-1619317.jpeg'); background-size: cover; background-position: center; background-attachment: fixed; }
+        #chat-container { width: 90%; max-width: 1000px; height: 90vh; height: 90dvh; background: var(--bg-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 24px; display: flex; flex-direction: column; box-shadow: var(--shadow-soft); border: 1px solid rgba(255,255,255,0.4); overflow: hidden; }
+        #chat-messages { flex-grow: 1; padding: 30px; overflow-y: auto; scroll-behavior: smooth; }
+        #chat-messages::-webkit-scrollbar { width: 6px; }
+        #chat-messages::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,0.1); border-radius: 4px; }
+        .message { margin-bottom: 20px; padding: 14px 18px; border-radius: 18px; max-width: 85%; line-height: 1.6; font-size: 15px; position: relative; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message.user { background: var(--primary-gradient); color: white; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 4px; box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3); font-weight: 500; }
+        .message.ai { background-color: #ffffff; color: #1d1d1f; align-self: flex-start; border: none; border-bottom-left-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+        .message.ai blockquote { border-left: 4px solid #4ca1af; margin: 15px 0; padding-left: 15px; color: #555; font-style: italic; background: #f1f4f6; padding: 10px; border-radius: 0 8px 8px 0; }
+        .message.ai strong { color: #2c3e50; font-weight: 700; }
+        .message.ai h3 { margin-top: 25px; margin-bottom: 8px; color: #2c3e50; font-size: 1.2em; border-bottom: 2px solid #e0e0e0; padding-bottom: 5px; display: inline-block; }
+
+        .message.ai img { max-width: 100%; border-radius: 12px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: transform 0.2s; display: block; }
+        .message.ai img:hover { transform: scale(1.02); }
+
+        #action-bar { padding: 10px 30px 0 30px; display: flex; gap: 10px; flex-wrap: wrap; background: transparent; }
+        .action-btn { background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(44, 62, 80, 0.2); color: #2c3e50; padding: 6px 14px; border-radius: 16px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 5px; }
+        .action-btn:hover { background: #2c3e50; color: white; transform: translateY(-2px); }
+        .action-btn.random { border-color: #c0392b; color: #c0392b; }
+        .action-btn.random:hover { background: #c0392b; color: white; }
+
+        #input-area { display: flex; padding: 20px 30px; background: transparent; gap: 10px; }
+        #user-input { flex-grow: 1; border: 1px solid transparent; background: #f0f2f5; border-radius: 24px; padding: 12px 20px; font-size: 15px; outline: none; transition: all 0.3s ease; color: #333; }
+        #user-input:focus { background: #fff; box-shadow: 0 0 0 4px rgba(44, 62, 80, 0.1); border-color: #2c3e50; }
+        #send-btn { border: none; background: #2c3e50; color: white; padding: 0 24px; border-radius: 24px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        #send-btn:hover { background: #34495e; transform: translateY(-1px); }
+
+        .typing-indicator { display: flex; align-items: center; gap: 4px; padding: 5px 0; }
+        .typing-dot { width: 6px; height: 6px; background-color: #2c3e50; border-radius: 50%; animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        .message.ai table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 0.9em; border-radius: 8px; overflow: hidden; }
+        .message.ai th, .message.ai td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .message.ai th { background-color: #f1f3f5; font-weight: 600; color: #2c3e50; }
+
+        .export-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            margin-top: 15px; padding: 6px 12px;
+            font-size: 12px; font-weight: 600;
+            background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px;
+            color: #4ca1af; cursor: pointer; transition: all 0.2s;
+        }
+        .export-btn:hover { background: #e9ecef; color: #2c3e50; }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="chat-messages">
+            <div class="message ai">
+                Greetings. I am <b>CultureGo</b>. 🌍
+                <br><b>Deep Travel. Real Culture.</b>
+                <br>Let's explore the world's true colors.
+                <br><br>
+                Where to today?
+            </div>
+        </div>
+        <div id="action-bar">
+            <button class="action-btn" onclick="handleQuickAction('culture')">🎎 Deep Culture</button>
+            <button class="action-btn" onclick="handleQuickAction('etiquette')">🙏 Etiquette</button>
+            <button class="action-btn" onclick="handleQuickAction('exchange')">💱 Exchange rate</button>
+            <button class="action-btn" onclick="handleQuickAction('weather')">☀️ Weather</button>
+            <button class="action-btn random" onclick="handleQuickAction('random')">🎲 Random Trip</button>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Type a city (e.g., Kyoto, Rome)...">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 🔧 FIX: Marked.js Compatibility ---
+        if (typeof marked.use === 'function') {
+            marked.use({ breaks: true, gfm: true });
+        } else if (typeof marked.setOptions === 'function') {
+            marked.setOptions({ breaks: true });
+        }
+
+        // --- ⚙️ CONFIG ---
+        const LM_STUDIO_ENDPOINT = 'https://grumly-hierurgical-moon.ngrok-free.dev/v1/chat/completions';
+        const MODEL_ID = 'qwen3-vl-8b-instruct';
+        const WEATHER_API_KEY = 'YOUR_API_KEY_HERE';
+        const SERPER_API_KEY = 'YOUR_API_KEY_HERE';
+
+        // 🔙 回滚：恢复旧版 Frankfurter API
+        const EXCHANGE_RATE_ENDPOINT = 'https://api.frankfurter.app';
+
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        let abortController = null;
+        let lastMentionedLocation = null;
+
+        const SYSTEM_PROMPT_CHAT = `You are 'CultureGo'.
+        - You are warm, curious, and concise.
+        - The user has NOT chosen a destination yet.
+        - Your ONLY job is to greet them and ask where they want to go.
+        - DO NOT provide travel advice yet. Just chat.`;
+
+        // 🔥 V2 杂志模式：保持你喜欢的精准搜图逻辑
+        const SYSTEM_PROMPT_MAGAZINE = `You are 'CultureGo', a Cultural Editor.
+
+        **🛑 CONTENT FILTER:**
+        - Plan for: **Late 2025 / Early 2026**.
+        - Only recommend events in Dec/Jan/Feb/Mar.
+
+        **🖼️ PRECISE IMAGE MAPPING (IMPORTANT):**
+        - You have been provided with a list of [SPECIFIC VISUALS] in the format: "Term: URL".
+        - When you write about that specific topic/place, you **MUST** insert its corresponding image immediately after the paragraph.
+        - **Format:** ![] (url)
+        - **Example:** If you write about "Senso-ji", use the URL labelled "Senso-ji".
+
+        **🎨 OUTPUT STYLE:**
+        "Ah, **[Place]**! ..."
+
+        ### 1. [Title]
+        *[📅 Date OR 🍵 Seasonal Ritual]*
+        [Description...]
+
+        ![Image](Insert_Matched_URL_Here)
+
+        > 💡 **Insider Tip:** [Advice]`;
+
+        // 🔥 V2 策展人模式
+        const SYSTEM_PROMPT_CURATOR = `You are 'CultureGo', an Expert Cultural Curator.
+
+        **GOAL:** Curate 3 Soulful Experiences.
+        **⛔ RULES:** Focus on Winter/Spring Season.
+
+        **🖼️ PRECISE IMAGE MAPPING (IMPORTANT):**
+        - You have been provided with [SPECIFIC VISUALS] mapped to specific keywords.
+        - You **MUST** ensure the image placed under a section MATCHES the content of that section.
+        - Do not place a "Food" image under a "Temple" section.
+
+        **🎨 OUTPUT STYLE:**
+        "Here are 3 curated soul-experiences for **[Place]**:"
+
+        ### 1. 👁️ The Sight: [Name]
+        [Why it matters]
+        ![Image](Insert_Matched_URL_Here)
+
+        ### 2. 🧘 The Ritual: [Name]
+        [How to participate]
+        ![Image](Insert_Matched_URL_Here)
+
+        ### 3. 👅 The Taste: [Name]
+        [What to eat]
+        ![Image](Insert_Matched_URL_Here)
+
+        > 🎒 **Curator's Note:** [Tip]`;
+
+        let conversationHistory = [{ role: "system", content: SYSTEM_PROMPT_CHAT }];
+
+
+        // --- 🔧 Functions ---
+
+        function handleQuickAction(type) {
+            if (type === 'random') {
+                const destinations = ["Kyoto", "Florence", "Istanbul", "Cairo", "Varanasi", "Mexico City", "Marrakech", "Prague", "Buenos Aires", "Siem Reap", "Lisbon", "Hanoi", "Cusco", "Athens", "Seoul", "Bangkok", "Rome", "Barcelona", "Paris", "London", "Tokyo", "Shanghai", "Hong Kong", "Singapore", "Dubai", "Mumbai", "Kathmandu", "Bali"];
+                const randomDest = destinations[Math.floor(Math.random() * destinations.length)];
+                userInput.value = `Curate top 3 deep cultural experiences for ${randomDest} in Winter/Spring.`;
+                sendMessage();
+                return;
+            }
+            if (!lastMentionedLocation) {
+                const div = document.createElement('div');
+                div.className = 'message ai';
+                div.innerHTML = `📍 Please mention a city first.`;
+                chatMessages.appendChild(div);
+                return;
+            }
+            let query = "";
+            if (type === 'culture') query = `Find cultural festivals in ${lastMentionedLocation} for Dec 2025 to Mar 2026`;
+            if (type === 'etiquette') query = `Cultural do's and don'ts in ${lastMentionedLocation}`;
+            if (type === 'exchange') query = `Exchange rate for ${lastMentionedLocation}`;
+            if (type === 'weather') query = `Weather in ${lastMentionedLocation}`;
+            userInput.value = query;
+            sendMessage();
+        }
+
+        function detectCityFromText(text) {
+            const lower = text.toLowerCase();
+            if (lower.includes('china')) return 'Beijing';
+            if (lower.includes('japan')) return 'Tokyo';
+            if (lower.includes('italy')) return 'Rome';
+            if (lower.includes('france')) return 'Paris';
+            if (lower.includes('uk')) return 'London';
+            return null;
+        }
+
+        // --- 🔧 FIX: Robust Router ---
+        async function analyzeUserIntent(text) {
+            const contextInfo = lastMentionedLocation ? `(Last: "${lastMentionedLocation}")` : "";
+            const analysisPrompt = [
+                { role: "system", content: `Router. Output JSON only. Context: ${contextInfo}. Output format: { "intent": "trip_planner|weather|culture_events|etiquette|exchange_rate|chat", "city": "CityName", "target_currency": "ISO Code" }` },
+                { role: "user", content: text }
+            ];
+            try {
+                const response = await fetch(LM_STUDIO_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ model: MODEL_ID, messages: analysisPrompt, temperature: 0.1, max_tokens: 100 }),
+                });
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        return JSON.parse(jsonMatch[0]);
+                    } catch (e) {
+                        return { intent: "chat" };
+                    }
+                } else {
+                    return { intent: "chat" };
+                }
+            } catch (e) { return { intent: "chat" }; }
+        }
+
+        // --- V2 功能：智能关键词 & 代理搜图 ---
+        async function getSmartKeywords(city) {
+            const prompt = [
+                { role: "system", content: "You are a travel keyword generator." },
+                { role: "user", content: `For a trip to ${city}, list 3 distinct, specific, famous cultural landmarks, foods, or festivals suitable for Winter/Spring.
+                Output ONLY a comma-separated list. No numbering.
+                Example: "Senso-ji Temple, Sushi Dai, Shibuya Crossing"` }
+            ];
+            try {
+                const response = await fetch(LM_STUDIO_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ model: MODEL_ID, messages: prompt, temperature: 0.3, max_tokens: 50 }),
+                });
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+                return content.split(',').map(s => s.trim()).slice(0, 3);
+            } catch (e) { return [`${city} aesthetic`, `${city} street`, `${city} food`]; }
+        }
+
+        // --- 🔧 FIX: CORB Safe Image Search ---
+        async function searchOneImage(query) {
+            try {
+                const myHeaders = new Headers();
+                myHeaders.append("X-API-KEY", SERPER_API_KEY);
+                myHeaders.append("Content-Type", "application/json");
+                // Added hl:en to improve result consistency
+                const raw = JSON.stringify({ "q": `${query} aesthetic photography high quality`, "gl": "us", "hl": "en", "num": 1 });
+
+                const res = await fetch("https://google.serper.dev/images", { method: 'POST', headers: myHeaders, body: raw, redirect: 'follow' });
+                const data = await res.json();
+
+                if (data.images && data.images.length > 0) {
+                    const originalUrl = data.images[0].imageUrl;
+                    // Properly encode URL and add weserv parameters to reduce errors
+                    const proxyUrl = `https://images.weserv.nl/?url=${encodeURIComponent(originalUrl)}&w=800&fit=cover&n=-1`;
+                    return { term: query, url: proxyUrl };
+                }
+                return null;
+            } catch (e) { return null; }
+        }
+
+        async function getCulturalEvents(city) {
+            try {
+                const myHeaders = new Headers();
+                myHeaders.append("X-API-KEY", SERPER_API_KEY);
+                myHeaders.append("Content-Type", "application/json");
+                const queryStr = `Traditional cultural festivals events in ${city} Winter 2026 Spring 2026`;
+                const raw = JSON.stringify({ "q": queryStr, "gl": "us", "hl": "en" });
+                const res = await fetch("https://google.serper.dev/search", { method: 'POST', headers: myHeaders, body: raw });
+                const data = await res.json();
+                if (data.organic) {
+                    let list = "";
+                    data.organic.slice(0, 6).forEach((e) => { list += `\n- ${e.title}: ${e.snippet}`; });
+                    return list;
+                }
+                return "No specific events found.";
+            } catch (e) { return "Search failed."; }
+        }
+
+        // 🔙 回滚功能：旧版 Frankfurter 汇率函数
+        async function getCurrency(amount, baseCurrency) {
+            try {
+                let requestBase = baseCurrency || 'USD';
+                let targets = 'CNY,HKD,USD';
+                if (baseCurrency === 'CNY') { targets = 'HKD,USD'; }
+                const res = await fetch(`${EXCHANGE_RATE_ENDPOINT}/latest?amount=1&from=${requestBase}&to=${targets}`);
+                const data = await res.json();
+                const rates = data.rates;
+
+                let output = `### 💱 Exchange Rates (${baseCurrency})\n`;
+                output += `📅 **Data Date:** ${data.date} (API Latest)\n`;
+                output += `🔗 **Source:** Frankfurter API\n\n`;
+                output += `| Currency | Rate | 100 ${baseCurrency} Gets |\n| :--- | :--- | :--- |\n`;
+
+                if (rates['HKD']) output += `| 🇭🇰 HKD | ${rates['HKD']} | ${(rates['HKD']*100).toFixed(0)} |\n`;
+                if (rates['CNY']) output += `| 🇨🇳 CNY (人民币) | ${rates['CNY']} | ${(rates['CNY']*100).toFixed(0)} |\n`;
+                if (rates['USD']) output += `| 🇺🇸 USD | ${rates['USD']} | ${(rates['USD']*100).toFixed(0)} |\n`;
+                return output;
+            } catch (e) { return `[System Tool Error: Unable to fetch rates. Note: Frankfurter API supports limited currencies.]`; }
+        }
+
+        // 🔙 回滚功能：旧版天气函数
+        async function getWeatherTime(city) {
+            try {
+                const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${WEATHER_API_KEY}&units=metric&lang=en`);
+                if (!res.ok) throw new Error("City not found");
+                const data = await res.json();
+                const obsTime = new Date(data.dt * 1000).toLocaleString();
+                return `**Live Weather in ${city}:**\n🕒 **Observed at:** ${obsTime}\n🌡️ **Temp:** ${data.main.temp}°C\n☁️ **Condition:** ${data.weather[0].description}`;
+            } catch (e) { return `[Weather unavailable]`; }
+        }
+
+        // --- Main Logic ---
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+            displayMessage(text, 'user');
+            userInput.value = '';
+
+            const historyStateIndex = conversationHistory.length;
+            conversationHistory.push({ role: 'user', content: text });
+            if (conversationHistory.length > 10) conversationHistory.splice(1, 1);
+
+            updateButtonState(true);
+            abortController = new AbortController();
+            const loaderHTML = `<div class="typing-indicator"><span>🧠 Planning...</span><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+            const thinkingMsg = displayMessage(loaderHTML, "ai", true);
+
+            try {
+                let detectedCity = detectCityFromText(text);
+                const plan = await analyzeUserIntent(text);
+                if (!detectedCity && plan.city && plan.city !== "NULL") detectedCity = plan.city;
+                if (detectedCity) lastMentionedLocation = detectedCity;
+
+                let cityForImage = detectedCity || lastMentionedLocation;
+
+                // --- V2 精准搜图逻辑 (保留) ---
+                let visualContext = "";
+                if (cityForImage && (plan.intent === 'trip_planner' || plan.intent === 'culture_events' || text.includes("Curate"))) {
+                    thinkingMsg.innerHTML = `🕵️‍♂️ **Scouting spots for ${cityForImage}...**`;
+                    const smartKeywords = await getSmartKeywords(cityForImage);
+
+                    const imagePromises = smartKeywords.map(keyword => searchOneImage(`${cityForImage} ${keyword}`));
+                    const imageResults = await Promise.all(imagePromises);
+
+                    const validImages = imageResults.filter(img => img !== null);
+                    if (validImages.length > 0) {
+                        visualContext = `\n\n[SPECIFIC VISUALS]:\n` + validImages.map(img => `- Keyword "${img.term}": ${img.url}`).join("\n");
+                        visualContext += `\n\n🔴 INSTRUCTION: You MUST use these exact URLs when you discuss these specific topics.`;
+                    }
+                } else if (cityForImage) {
+                    const genImg = await searchOneImage(cityForImage + " travel");
+                    if (genImg) visualContext = `\n\n[VISUAL]: ![](${genImg.url})`;
+                }
+
+                // --- 意图处理与回滚 ---
+                if (plan.intent === 'trip_planner') {
+                    conversationHistory[0] = { role: "system", content: SYSTEM_PROMPT_CURATOR };
+                    if (cityForImage) {
+                        const events = await getCulturalEvents(cityForImage);
+                        conversationHistory.push({ role: 'system', content: events + visualContext });
+                    }
+                } else if (plan.intent === 'chat' && !detectedCity) {
+                    conversationHistory[0] = { role: "system", content: SYSTEM_PROMPT_CHAT };
+                } else {
+                    conversationHistory[0] = { role: "system", content: SYSTEM_PROMPT_MAGAZINE };
+                    if (cityForImage) {
+                        if (plan.intent === "culture_events") {
+                            let toolOutput = await getCulturalEvents(cityForImage);
+                            conversationHistory.push({ role: 'system', content: toolOutput + visualContext });
+                        }
+                        // 🔙 回滚逻辑：天气 (带严格指令)
+                        else if (plan.intent === "weather") {
+                            let toolOutput = await getWeatherTime(cityForImage);
+                            conversationHistory.push({
+                                role: 'system',
+                                content: `[REAL-TIME API DATA]: ${toolOutput}\n\n🔴 INSTRUCTION: \n1. FIRST, display the "Current Live Weather" (with the Observation Time) prominently.\n2. THEN, provide the "Seasonal Forecast" for the upcoming months.`
+                            });
+                        }
+                        // 🔙 回滚逻辑：汇率 (带严格指令 + 旧版货币判断)
+                        else if (plan.intent === "exchange_rate") {
+                            let targetCurr = plan.target_currency || 'USD';
+                            if (cityForImage === 'Tokyo' || cityForImage === 'Kyoto') targetCurr = 'JPY';
+                            if (cityForImage === 'London') targetCurr = 'GBP';
+                            let toolOutput = await getCurrency(1, targetCurr);
+                            conversationHistory.push({
+                                role: 'system',
+                                content: `[REAL-TIME API DATA]:\n${toolOutput}\n\n🔴 STRICT INSTRUCTION: \n1. You MUST display the "Data Date" and "Source" from the API data above exactly as shown.\n2. DO NOT predict future rates (e.g. for 2026). Finance data must be precise and current.\n3. Just show the table.`
+                            });
+                        }
+                        else if (visualContext) {
+                            conversationHistory.push({ role: 'system', content: "[Context Update]: " + visualContext });
+                        }
+                    }
+                }
+
+                thinkingMsg.innerHTML = `<div class="typing-indicator"><span>✍️ Writing Magazine...</span><div class="typing-dot"></div></div>`;
+                await generateFinalResponse(thinkingMsg);
+            } catch (error) {
+                console.error(error);
+                thinkingMsg.innerHTML = "❌ Connection Error.";
+            } finally {
+                updateButtonState(false);
+                abortController = null;
+            }
+        }
+
+        async function generateFinalResponse(msgElement) {
+            const response = await fetch(LM_STUDIO_ENDPOINT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                body: JSON.stringify({
+                    model: MODEL_ID,
+                    messages: conversationHistory,
+                    stream: true,
+                    max_tokens: -1
+                }),
+                signal: abortController.signal
+            });
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let fullText = "";
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const json = JSON.parse(line.substring(6));
+                            const content = json.choices[0]?.delta?.content || "";
+                            fullText += content;
+                            msgElement.innerHTML = marked.parse(fullText);
+                            chatMessages.scrollTop = chatMessages.scrollHeight;
+                        } catch (e) {}
+                    }
+                }
+            }
+            if (fullText) conversationHistory.push({ role: 'assistant', content: fullText });
+            const lastMsgDiv = chatMessages.lastElementChild;
+            if (lastMsgDiv && fullText.length > 50) addExportButton(lastMsgDiv, fullText);
+        }
+
+        function displayMessage(text, type, isHTML = false) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = (type === 'ai' && !isHTML) ? marked.parse(text) : text;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return div;
+        }
+
+        function addExportButton(div, rawText) {
+            if (div.querySelector('.export-btn')) return;
+            const btn = document.createElement('button');
+            btn.className = 'export-btn';
+            btn.innerHTML = '📥 Export to Word';
+            btn.onclick = () => {
+                let contentHTML = marked.parse(rawText).replace(/<img[^>]*>/g, '');
+                const sourceHTML = `<html><head><meta charset='utf-8'></head><body>${contentHTML}</body></html>`;
+                saveAs(htmlDocx.asBlob(sourceHTML), `CultureGo_Plan.docx`);
+            };
+            div.appendChild(btn);
+        }
+
+        function updateButtonState(loading) {
+            if (loading) { sendBtn.textContent = "Stop"; sendBtn.classList.add("stop-mode"); }
+            else { sendBtn.textContent = "Send"; sendBtn.classList.remove("stop-mode"); }
+        }
+
+        sendBtn.addEventListener('click', () => abortController ? abortController.abort() : sendMessage());
+        userInput.addEventListener('keydown', (e) => { if(e.key === 'Enter' && !abortController) sendMessage(); });
+
+        // 🧹 保洁脚本
+        document.addEventListener('error', function(e) { if (e.target.tagName.toLowerCase() === 'img') e.target.style.display = 'none'; }, true);
+    </script>
+</body>
+</html>
