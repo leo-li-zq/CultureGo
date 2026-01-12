@@ -2,9 +2,11 @@
 An AI-driven cultural travel exploration assistant using locally deployed LLMs and real-time APIs.
 
 
+Motivation
+As an Applied Physics student minoring in AI and Data Analytics at The Hong Kong Polytechnic University, I am fascinated by the intersection of deterministic systems and stochastic language models. This project serves as a practical application of my academic training, demonstrating how rigorous system design can enhance the reliability and utility of generative AI in complex, real-world scenarios.
+
 
 CultureGo: Intelligent Cultural Exploration Assistant
-
 CultureGo is an AI-driven travel consultant designed to bridge the gap between Large Language Models (LLMs) and real-world dynamic data. By implementing custom intent-routing logic, the system provides users with deep cultural insights, real-time weather analytics, and precise financial exchange rates for global destinations.
 
 Core Features
@@ -38,5 +40,4 @@ const WEATHER_API_KEY = 'YOUR_OPENWEATHER_KEY';
 const SERPER_API_KEY = 'YOUR_SERPER_KEY';
 Local Execution: Open index.html in any modern web browser or host via a local server (e.g., Live Server).
 
-Motivation
-As an Applied Physics student minoring in AI and Data Analytics at The Hong Kong Polytechnic University, I am fascinated by the intersection of deterministic systems and stochastic language models. This project serves as a practical application of my academic training, demonstrating how rigorous system design can enhance the reliability and utility of generative AI in complex, real-world scenarios.
+
